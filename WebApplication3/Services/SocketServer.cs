@@ -193,6 +193,19 @@ public class StockNotificationServer : IHostedService, IDisposable
         await BroadcastAsync(notification);
     }
 
+    public async Task BroadcastMaintananceStockUpdate()
+    {
+        var notification = new NotificationMessage
+        {
+            Type = "StockUpdate",
+            Message = $"added 2 quantities for all products",
+            Timestamp = DateTime.UtcNow,
+       
+        };
+
+        await BroadcastAsync(notification);
+    }
+
     private async Task BroadcastAsync(NotificationMessage notification)
     {
         var clientsToRemove = new List<string>();

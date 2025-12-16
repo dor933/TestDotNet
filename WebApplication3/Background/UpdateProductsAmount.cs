@@ -1,29 +1,26 @@
 ﻿
 
-using Microsoft.Data.SqlClient;
 using ProductInventoryApi.Repositories;
 
 public class DailyCleanUpService : BackgroundService
 {
     private readonly ILogger<DailyCleanUpService> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IProductRepository _productRepository;
 
 
 
 
 
-    public DailyCleanUpService(ILogger<DailyCleanUpService> logger, IServiceProvider serviceProvider , IProductRepository productRepository)
+    public DailyCleanUpService(ILogger<DailyCleanUpService> logger, IServiceProvider serviceProvider)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
-        _productRepository = productRepository;
 
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var firstRunDelay = CalculateDelayForNextRun(2, 00);
+        var firstRunDelay = CalculateDelayForNextRun(02, 00);
 
         _logger.LogInformation($"Service started. Waiting {firstRunDelay} until first run.");
 
@@ -59,8 +56,8 @@ public class DailyCleanUpService : BackgroundService
 
         using (var scope = _serviceProvider.CreateScope())
         {
-
-            await _productRepository.IncrementProducts();
+            var productRepository = scope.ServiceProvider.GetRequiredService<IProductRepository>();
+            await productRepository.IncrementProducts();
         }
 
         _logger.LogInformation("Daily maintenance finished.");

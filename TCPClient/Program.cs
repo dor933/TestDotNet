@@ -4,15 +4,7 @@ using System.Text.Json;
 
 namespace StockNotificationClient;
 
-/// <summary>
-/// Console Application that acts as a TCP Socket Client.
-/// Connects to the Stock Notification Server and receives real-time stock updates.
-/// 
-/// Usage:
-/// 1. Start the Web API server (which includes the TcpListener on port 5050)
-/// 2. Run this console app
-/// 3. When stock is updated via PUT /api/products/{id}/stock, this app receives the notification
-/// </summary>
+
 class Program
 {
     private const string ServerHost = "127.0.0.1";
@@ -53,15 +45,10 @@ class Program
         Console.WriteLine("[INFO] Client shutdown complete.");
     }
 
-    /// <summary>
-    /// Connects to the TCP server and listens for stock update notifications.
-    /// Uses TcpClient from System.Net.Sockets namespace.
-    /// </summary>
     private static async Task ConnectAndListenAsync()
     {
         Console.WriteLine($"\n[INFO] Connecting to server at {ServerHost}:{ServerPort}...");
 
-        // Create TcpClient and connect to the server
         using var client = new TcpClient();
         await client.ConnectAsync(ServerHost, ServerPort);
 
@@ -133,9 +120,7 @@ class Program
         }
     }
 
-    /// <summary>
-    /// Sends periodic PING messages to keep the connection alive.
-    /// </summary>
+  
     private static async Task SendPingAsync(NetworkStream stream)
     {
         while (_isRunning)
@@ -159,9 +144,7 @@ class Program
         }
     }
 
-    /// <summary>
-    /// Processes a received JSON message from the server.
-    /// </summary>
+
     private static void ProcessMessage(string json)
     {
         try
@@ -198,16 +181,12 @@ class Program
         }
     }
 
-    /// <summary>
-    /// Displays a formatted stock update notification.
-    /// </summary>
+
     private static void PrintStockUpdate(NotificationMessage notification)
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║              📦 STOCK UPDATE NOTIFICATION                ║");
-        Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
+        Console.WriteLine("Welcome to stock update notification");
         Console.ResetColor();
 
         Console.WriteLine($"  Time: {notification.Timestamp:yyyy-MM-dd HH:mm:ss UTC}");
@@ -264,15 +243,7 @@ class Program
     private static void PrintHeader()
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine(@"
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║     📡 STOCK NOTIFICATION CLIENT (TCP Socket)                 ║
-║                                                               ║
-║     Listens for real-time stock updates from the API server   ║
-║     Using: System.Net.Sockets.TcpClient                       ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
+        Console.WriteLine(@" Initiate stock notification client
 ");
         Console.ResetColor();
     }

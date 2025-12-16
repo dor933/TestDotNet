@@ -12,57 +12,47 @@ public static class DatabaseExtensions
             var logger = services.GetRequiredService<ILogger<Program>>();
 
             var originalConnectionString = configuration.GetConnectionString("DefaultConnection");
-
             var builder = new SqlConnectionStringBuilder(originalConnectionString);
             string targetDatabaseName = builder.InitialCatalog;
 
+            // 1. Create Database if it doesn't exist
             builder.InitialCatalog = "master";
-            var masterConnectionString = builder.ConnectionString;
-
-            bool dbExists = false;
-
-            try
+            using (var connection = new SqlConnection(builder.ConnectionString))
             {
-                using (var connection = new SqlConnection(masterConnectionString))
+                connection.Open();
+                var checkCmd = new SqlCommand("SELECT 1 FROM sys.databases WHERE name = @name", connection);
+                checkCmd.Parameters.AddWithValue("@name", targetDatabaseName);
+
+                if (checkCmd.ExecuteScalar() == null)
                 {
-                    connection.Open();
-
-                    // 1. Check if DB exists in sys.databases
-                    var checkCmdText = "SELECT 1 FROM sys.databases WHERE name = @name";
-                    using (var checkCmd = new SqlCommand(checkCmdText, connection))
+                    logger.LogInformation($"Database {targetDatabaseName} does not exist. Creating...");
+                    using (var createCmd = new SqlCommand($"CREATE DATABASE [{targetDatabaseName}]", connection))
                     {
-                        checkCmd.Parameters.AddWithValue("@name", targetDatabaseName);
-                        var result = checkCmd.ExecuteScalar();
-                        dbExists = (result != null);
+                        createCmd.ExecuteNonQuery();
                     }
-
-                    // 2. If it doesn't exist, create it
-                    if (!dbExists)
-                    {
-                        logger.LogInformation($"Database {targetDatabaseName} does not exist. Creating...");
-                        var createCmdText = $"CREATE DATABASE [{targetDatabaseName}]";
-                        using (var createCmd = new SqlCommand(createCmdText, connection))
-                        {
-                            createCmd.ExecuteNonQuery();
-                        }
-                        logger.LogInformation("Database created.");
-                    }
-                    else
-                    {
-                        logger.LogInformation("Database already exists. Skipping creation and scheme script.");
-                    }
-                }
-
-                // 3. ONLY run the scheme script if the DB was just created
-                if (!dbExists)
-                {
-                    RunScript(originalConnectionString!, fileName, logger);
+                    logger.LogInformation("Database created.");
                 }
             }
-            catch (Exception ex)
+
+            // 2. Check if Tables exist in the specific database
+            bool tablesExist = false;
+            using (var connection = new SqlConnection(originalConnectionString))
             {
-                logger.LogError(ex, "An error occurred while setting up the database.");
-                throw;
+                connection.Open();
+                // Check for a specific table you expect, e.g., "Products"
+                var cmd = new SqlCommand("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Products'", connection);
+                tablesExist = cmd.ExecuteScalar() != null;
+            }
+
+            // 3. Run script if tables are missing
+            if (!tablesExist)
+            {
+                logger.LogInformation("Tables not found. Executing schema script...");
+                RunScript(originalConnectionString!, fileName, logger);
+            }
+            else
+            {
+                logger.LogInformation("Database and tables already exist.");
             }
         }
     }

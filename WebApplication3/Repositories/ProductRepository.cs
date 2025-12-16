@@ -25,7 +25,6 @@ public class ProductRepository : IProductRepository
 
     private SqlConnection CreateConnection() => new SqlConnection(_connectionString);
 
-    /// <inheritdoc />
     public async Task<IEnumerable<Product>> GetAllActiveProductsAsync(int? categoryId = null)
     {
         try
@@ -51,7 +50,6 @@ public class ProductRepository : IProductRepository
         }
     }
 
-    /// <inheritdoc />
     public async Task<Product?> GetProductByIdAsync(int productId)
     {
         try
