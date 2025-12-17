@@ -13,18 +13,15 @@ public class StockNotificationServer : IHostedService, IDisposable
     private TcpListener? _listener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptTask;
-    // 1 means "allow 1 thread", 1 means "max 1 thread"
     private readonly SemaphoreSlim _broadcastSemaphore = new(1, 1);
 
-    private readonly ConcurrentDictionary<string, TcpClient> _connectedClients = new();
-
+    private readonly ConcurrentDictionary<string, ClientConnection> _connectedClients = new();
 
     public StockNotificationServer(ILogger<StockNotificationServer> logger, IConfiguration configuration)
     {
         _logger = logger;
         _port = configuration.GetValue("SocketServer:Port", 5050);
     }
-
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -52,7 +49,6 @@ public class StockNotificationServer : IHostedService, IDisposable
         _logger.LogInformation("Stopping stock notification server...");
 
         _cancellationTokenSource?.Cancel();
-
         _listener?.Stop();
 
         if (_acceptTask != null)
@@ -77,7 +73,6 @@ public class StockNotificationServer : IHostedService, IDisposable
             _connectedClients.Count);
     }
 
-  
     private async Task AcceptClientsAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _listener != null)
@@ -87,15 +82,18 @@ public class StockNotificationServer : IHostedService, IDisposable
                 var client = await _listener.AcceptTcpClientAsync(cancellationToken);
                 var clientId = GenerateClientId(client);
 
-                if (_connectedClients.TryAdd(clientId, client))
+                // Wrap the client in our new thread-safe container
+                var connection = new ClientConnection(client);
+
+                if (_connectedClients.TryAdd(clientId, connection))
                 {
                     _logger.LogInformation("Client connected: {ClientId}. Total clients: {Count}",
                         clientId, _connectedClients.Count);
 
-                    //Handle each client in a separate task so we can continue accepting new clients
-                    _ = HandleClientAsync(clientId, client, cancellationToken);
+                    // Handle each client in a separate task- no await here to run concurrently
+                    _ = HandleClientAsync(clientId, connection, cancellationToken);
 
-                    await SendToClientAsync(client, new NotificationMessage
+                    await SendToClientAsync(connection, new NotificationMessage
                     {
                         Type = "Connected",
                         Message = $"Welcome! You are connected to the Stock Notification Server. ClientId: {clientId}",
@@ -118,21 +116,20 @@ public class StockNotificationServer : IHostedService, IDisposable
         }
     }
 
-
-    private async Task HandleClientAsync(string clientId, TcpClient client, CancellationToken cancellationToken)
+    private async Task HandleClientAsync(string clientId, ClientConnection connection, CancellationToken cancellationToken)
     {
         try
         {
-            using var stream = client.GetStream();
+            using var stream = connection.Client.GetStream();
             var buffer = new byte[1024];
 
-            while (!cancellationToken.IsCancellationRequested && client.Connected)
+            while (!cancellationToken.IsCancellationRequested && connection.Client.Connected)
             {
                 try
                 {
                     if (stream.DataAvailable)
                     {
-                        //halts the execution of that specific Task completely until actual bytes arrive from the network - performance optimization
+                        //halts the execution until data is available to read- performance optimization
                         var bytesRead = await stream.ReadAsync(buffer, cancellationToken);
                         if (bytesRead == 0)
                         {
@@ -144,7 +141,8 @@ public class StockNotificationServer : IHostedService, IDisposable
 
                         if (message.Equals("PING", StringComparison.OrdinalIgnoreCase))
                         {
-                            await SendToClientAsync(client, new NotificationMessage
+                            // This SendToClientAsync now handles the locking safely
+                            await SendToClientAsync(connection, new NotificationMessage
                             {
                                 Type = "Pong",
                                 Message = "PONG",
@@ -198,19 +196,16 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     public async Task BroadcastMaintananceStockUpdate()
     {
+        // prevent multiple maintenance broadcasts overlapping 
         await _broadcastSemaphore.WaitAsync();
-
-
 
         try
         {
-
             var notification = new NotificationMessage
             {
                 Type = "StockUpdate",
                 Message = $"added 2 quantities for all products",
                 Timestamp = DateTime.UtcNow,
-
             };
 
             await BroadcastAsync(notification);
@@ -223,38 +218,20 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private async Task BroadcastAsync(NotificationMessage notification)
     {
+        // This lock ensures we don't have two massive loops running at once
         await _broadcastSemaphore.WaitAsync();
         try
         {
             var clientsToRemove = new List<string>();
-            var json = JsonSerializer.Serialize(notification) + "\n";
-            var data = Encoding.UTF8.GetBytes(json);
-
-            // Create a snapshot of clients to iterate safely
             var clientSnapshot = _connectedClients.ToArray();
-
 
             foreach (var kvp in clientSnapshot)
             {
-                try
+                bool success = await SendToClientAsync(kvp.Value, notification);
+                if (!success)
                 {
-                    if (kvp.Value.Connected)
-                    {
-                        var stream = kvp.Value.GetStream();
-                        await stream.WriteAsync(data);
-                        await stream.FlushAsync();
-                    }
-                    else
-                    {
-                        clientsToRemove.Add(kvp.Key);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to send to client {ClientId}", kvp.Key);
                     clientsToRemove.Add(kvp.Key);
                 }
-
             }
 
             foreach (var clientId in clientsToRemove)
@@ -268,43 +245,48 @@ public class StockNotificationServer : IHostedService, IDisposable
                     clientSnapshot.Length - clientsToRemove.Count, notification.Type);
             }
         }
-     
-        finally { _broadcastSemaphore.Release(); }
-    }
-
-  
-    private async Task SendToClientAsync(TcpClient client, NotificationMessage notification)
-    {
-        await _broadcastSemaphore.WaitAsync();
-        try
-        {
-            if (client.Connected)
-            {
-                var json = JsonSerializer.Serialize(notification) + "\n";
-                var data = Encoding.UTF8.GetBytes(json);
-                var stream = client.GetStream();
-                await stream.WriteAsync(data);
-                await stream.FlushAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to send message to client");
-        }
         finally
         {
             _broadcastSemaphore.Release();
         }
     }
 
+    private async Task<bool> SendToClientAsync(ClientConnection connection, NotificationMessage notification)
+    {
+        await connection.SendLock.WaitAsync();
+        try
+        {
+            if (connection.Client.Connected)
+            {
+                var json = JsonSerializer.Serialize(notification) + "\n";
+                var data = Encoding.UTF8.GetBytes(json);
+                var stream = connection.Client.GetStream();
+
+                await stream.WriteAsync(data);
+                await stream.FlushAsync();
+                return true;
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send message to client");
+            return false;
+        }
+        finally
+        {
+            connection.SendLock.Release();
+        }
+    }
+
     private void RemoveClient(string clientId)
     {
-        if (_connectedClients.TryRemove(clientId, out var client))
+        if (_connectedClients.TryRemove(clientId, out var connection))
         {
             try
             {
-                client.Close();
-                client.Dispose();
+                connection.Client.Close();
+                connection.Dispose();
             }
             catch
             {
@@ -320,7 +302,7 @@ public class StockNotificationServer : IHostedService, IDisposable
         {
             try
             {
-                kvp.Value.Close();
+                kvp.Value.Client.Close();
                 kvp.Value.Dispose();
             }
             catch
@@ -330,13 +312,11 @@ public class StockNotificationServer : IHostedService, IDisposable
         _connectedClients.Clear();
     }
 
-
     private static string GenerateClientId(TcpClient client)
     {
         var endpoint = client.Client.RemoteEndPoint as IPEndPoint;
         return $"{endpoint?.Address}:{endpoint?.Port}-{Guid.NewGuid():N}";
     }
-
 
     public int ConnectedClientCount => _connectedClients.Count;
 
@@ -346,6 +326,25 @@ public class StockNotificationServer : IHostedService, IDisposable
         _cancellationTokenSource?.Dispose();
         _listener?.Stop();
         DisconnectAllClients();
+        _broadcastSemaphore.Dispose();
+    }
+}
+
+
+internal class ClientConnection : IDisposable
+{
+    public TcpClient Client { get; }
+    public SemaphoreSlim SendLock { get; } = new SemaphoreSlim(1, 1);
+
+    public ClientConnection(TcpClient client)
+    {
+        Client = client;
+    }
+
+    public void Dispose()
+    {
+        SendLock.Dispose();
+        Client.Dispose();
     }
 }
 
@@ -356,4 +355,3 @@ public class NotificationMessage
     public DateTime Timestamp { get; set; }
     public object? Data { get; set; }
 }
-

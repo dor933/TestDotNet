@@ -115,6 +115,8 @@ class Program
   
     private static async Task SendPingAsync(NetworkStream stream)
     {
+        //as long is the client is running send ping every 30 seconds to keep the connection alive
+
         while (_isRunning)
         {
             try
@@ -126,7 +128,6 @@ class Program
                     var pingData = Encoding.UTF8.GetBytes("PING\n");
                     await stream.WriteAsync(pingData);
                     await stream.FlushAsync();
-                    PrintInfo("Ping Sent Successfully");
                 }
             }
             catch
