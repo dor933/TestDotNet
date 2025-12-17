@@ -30,6 +30,8 @@ Update the server address to match your environment (local or remote; the defaul
 
 Note: If you are using SQL Express, ensure the address is set to .\SQLEXPRESS or <YourMachineName>\SQLEXPRESS.
 
+Note: The database schema and sample data are automatically generated upon startup by the /Database/Init.cs file
+
 3. Documentation File Setup
 To ensure the project generates and reads the XML documentation file correctly (preventing "File Not Found" errors), follow these steps:
 
@@ -40,9 +42,11 @@ Navigate to Build > Output (or search for "Documentation file" in the search bar
 Verify that the checkbox labeled "Generate a file containing API documentation" is checked.
 
 How to Run (Visual Studio)
-To run the system successfully, the startup order is critical. The server side must be running before the client attempts to connect.
+
+To run the system successfully, its better that the server side will be running before the client attempts to connect.
 
 Configure Startup Projects
+
 Right-click on the Solution file in the Solution Explorer.
 
 Select Properties.
