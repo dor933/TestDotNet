@@ -3,18 +3,19 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using ProductInventoryApi.Models;
 using ProductInventoryApi.Services;
+using WebApplication3.Interfaces;
 
 namespace ProductInventoryApi.Repositories;
 
-public class ProductRepository : IProductRepository
+public class ProductsService : IProductsService
 {
     private readonly string _connectionString;
-    private readonly ILogger<ProductRepository> _logger;
+    private readonly ILogger<ProductsService> _logger;
     private readonly StockNotificationServer? _notificationServer;
 
-    public ProductRepository(
+    public ProductsService(
         IConfiguration configuration,
-        ILogger<ProductRepository> logger,
+        ILogger<ProductsService> logger,
         StockNotificationServer? notificationServer = null)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")

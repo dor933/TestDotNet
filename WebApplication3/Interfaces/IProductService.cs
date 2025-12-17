@@ -1,9 +1,9 @@
 ﻿using ProductInventoryApi.Models;
 
-namespace ProductInventoryApi.Repositories;
+namespace WebApplication3.Interfaces;
 
 
-public interface IProductRepository
+public interface IProductsService
 {
 
     Task<IEnumerable<Product>> GetAllActiveProductsAsync(int? categoryId = null);

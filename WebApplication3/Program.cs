@@ -2,6 +2,7 @@ using Microsoft.OpenApi.Models;
 using ProductInventoryApi.Middleware;
 using ProductInventoryApi.Repositories;
 using ProductInventoryApi.Services;
+using WebApplication3.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,12 +15,12 @@ builder.Services.AddSingleton<StockNotificationServer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StockNotificationServer>());
 builder.Services.AddHostedService<DailyCleanUpService>();
 
-builder.Services.AddScoped<IProductRepository>(sp =>
+builder.Services.AddScoped<IProductsService>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-    var logger = sp.GetRequiredService<ILogger<ProductRepository>>();
+    var logger = sp.GetRequiredService<ILogger<ProductsService>>();
     var notificationServer = sp.GetRequiredService<StockNotificationServer>();
-    return new ProductRepository(config, logger, notificationServer);
+    return new ProductsService(config, logger, notificationServer);
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

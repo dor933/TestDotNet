@@ -180,7 +180,7 @@ public class StockNotificationServer : IHostedService, IDisposable
         var notification = new NotificationMessage
         {
             Type = "StockUpdate",
-            Message = $"Stock updated for '{productName}' (ID: {productId}): {oldQuantity} → {newQuantity}",
+            Message = $"Stock updated for '{productName}' (ID: {productId}): From {oldQuantity} To {newQuantity}",
             Timestamp = DateTime.UtcNow,
             Data = new
             {

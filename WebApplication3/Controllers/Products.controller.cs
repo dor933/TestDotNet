@@ -1,21 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ProductInventoryApi.DTOs;
-using ProductInventoryApi.Repositories;
+using WebApplication3.Interfaces;
 
 namespace ProductInventoryApi.Controllers;
 
-/// <summary>
-/// API Controller for managing products in the inventory system.
-/// </summary>
+
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
 public class ProductsController : ControllerBase
 {
-    private readonly IProductRepository _productRepository;
+    private readonly IProductsService _productRepository;
     private readonly ILogger<ProductsController> _logger;
 
-    public ProductsController(IProductRepository productRepository, ILogger<ProductsController> logger)
+    public ProductsController(IProductsService productRepository, ILogger<ProductsController> logger)
     {
         _productRepository = productRepository;
         _logger = logger;

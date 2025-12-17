@@ -59,7 +59,7 @@ public static class DatabaseExtensions
 
     private static void RunScript(string connectionString, string fileName, ILogger logger)
     {
-        var filePath = Path.Combine(AppContext.BaseDirectory, fileName);
+        var filePath = Path.Combine(AppContext.BaseDirectory, $"../../../{fileName}");
         if (!File.Exists(filePath))
         {
             logger.LogError($"Script file not found: {filePath}");

@@ -1,6 +1,4 @@
-﻿
-
-using ProductInventoryApi.Repositories;
+﻿using WebApplication3.Interfaces;
 
 public class DailyCleanUpService : BackgroundService
 {
@@ -56,7 +54,7 @@ public class DailyCleanUpService : BackgroundService
 
         using (var scope = _serviceProvider.CreateScope())
         {
-            var productRepository = scope.ServiceProvider.GetRequiredService<IProductRepository>();
+            var productRepository = scope.ServiceProvider.GetRequiredService<IProductsService>();
             await productRepository.IncrementProducts();
         }
 
