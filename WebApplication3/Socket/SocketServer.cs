@@ -18,7 +18,6 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private readonly ConcurrentDictionary<string, TcpClient> _connectedClients = new();
 
-    private readonly object _broadcastLock = new();
 
     public StockNotificationServer(ILogger<StockNotificationServer> logger, IConfiguration configuration)
     {
@@ -93,6 +92,7 @@ public class StockNotificationServer : IHostedService, IDisposable
                     _logger.LogInformation("Client connected: {ClientId}. Total clients: {Count}",
                         clientId, _connectedClients.Count);
 
+                    //Handle each client in a separate task so we can continue accepting new clients
                     _ = HandleClientAsync(clientId, client, cancellationToken);
 
                     await SendToClientAsync(client, new NotificationMessage
@@ -132,6 +132,7 @@ public class StockNotificationServer : IHostedService, IDisposable
                 {
                     if (stream.DataAvailable)
                     {
+                        //halts the execution of that specific Task completely until actual bytes arrive from the network - performance optimization
                         var bytesRead = await stream.ReadAsync(buffer, cancellationToken);
                         if (bytesRead == 0)
                         {
@@ -197,16 +198,27 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     public async Task BroadcastMaintananceStockUpdate()
     {
+        await _broadcastSemaphore.WaitAsync();
 
-        var notification = new NotificationMessage
+
+
+        try
         {
-            Type = "StockUpdate",
-            Message = $"added 2 quantities for all products",
-            Timestamp = DateTime.UtcNow,
-       
-        };
 
-        await BroadcastAsync(notification);
+            var notification = new NotificationMessage
+            {
+                Type = "StockUpdate",
+                Message = $"added 2 quantities for all products",
+                Timestamp = DateTime.UtcNow,
+
+            };
+
+            await BroadcastAsync(notification);
+        }
+        finally
+        {
+            _broadcastSemaphore.Release();
+        }
     }
 
     private async Task BroadcastAsync(NotificationMessage notification)
