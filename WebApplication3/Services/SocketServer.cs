@@ -13,6 +13,8 @@ public class StockNotificationServer : IHostedService, IDisposable
     private TcpListener? _listener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptTask;
+    // 1 means "allow 1 thread", 1 means "max 1 thread"
+    private readonly SemaphoreSlim _broadcastSemaphore = new(1, 1);
 
     private readonly ConcurrentDictionary<string, TcpClient> _connectedClients = new();
 
@@ -195,6 +197,7 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     public async Task BroadcastMaintananceStockUpdate()
     {
+
         var notification = new NotificationMessage
         {
             Type = "StockUpdate",
@@ -208,50 +211,59 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private async Task BroadcastAsync(NotificationMessage notification)
     {
-        var clientsToRemove = new List<string>();
-        var json = JsonSerializer.Serialize(notification) + "\n";
-        var data = Encoding.UTF8.GetBytes(json);
-
-        // Create a snapshot of clients to iterate safely
-        var clientSnapshot = _connectedClients.ToArray();
-
-        foreach (var kvp in clientSnapshot)
+        await _broadcastSemaphore.WaitAsync();
+        try
         {
-            try
+            var clientsToRemove = new List<string>();
+            var json = JsonSerializer.Serialize(notification) + "\n";
+            var data = Encoding.UTF8.GetBytes(json);
+
+            // Create a snapshot of clients to iterate safely
+            var clientSnapshot = _connectedClients.ToArray();
+
+
+            foreach (var kvp in clientSnapshot)
             {
-                if (kvp.Value.Connected)
+                try
                 {
-                    var stream = kvp.Value.GetStream();
-                    await stream.WriteAsync(data);
-                    await stream.FlushAsync();
+                    if (kvp.Value.Connected)
+                    {
+                        var stream = kvp.Value.GetStream();
+                        await stream.WriteAsync(data);
+                        await stream.FlushAsync();
+                    }
+                    else
+                    {
+                        clientsToRemove.Add(kvp.Key);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
+                    _logger.LogWarning(ex, "Failed to send to client {ClientId}", kvp.Key);
                     clientsToRemove.Add(kvp.Key);
                 }
+
             }
-            catch (Exception ex)
+
+            foreach (var clientId in clientsToRemove)
             {
-                _logger.LogWarning(ex, "Failed to send to client {ClientId}", kvp.Key);
-                clientsToRemove.Add(kvp.Key);
+                RemoveClient(clientId);
+            }
+
+            if (clientSnapshot.Length > 0)
+            {
+                _logger.LogInformation("Broadcast sent to {Count} clients: {Type}",
+                    clientSnapshot.Length - clientsToRemove.Count, notification.Type);
             }
         }
-
-        foreach (var clientId in clientsToRemove)
-        {
-            RemoveClient(clientId);
-        }
-
-        if (clientSnapshot.Length > 0)
-        {
-            _logger.LogInformation("Broadcast sent to {Count} clients: {Type}",
-                clientSnapshot.Length - clientsToRemove.Count, notification.Type);
-        }
+     
+        finally { _broadcastSemaphore.Release(); }
     }
 
   
     private async Task SendToClientAsync(TcpClient client, NotificationMessage notification)
     {
+        await _broadcastSemaphore.WaitAsync();
         try
         {
             if (client.Connected)
@@ -266,6 +278,10 @@ public class StockNotificationServer : IHostedService, IDisposable
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to send message to client");
+        }
+        finally
+        {
+            _broadcastSemaphore.Release();
         }
     }
 

@@ -14,9 +14,7 @@ public class ProductResponse
     public DateTime CreatedAt { get; set; }
     public bool IsActive { get; set; }
 
-    /// <summary>
-    /// Creates a ProductResponse from a Product model.
-    /// </summary>
+
     public static ProductResponse FromProduct(Models.Product product)
     {
         return new ProductResponse

@@ -27,6 +27,7 @@ internal class ClientRequestTracker
     {
         get
         {
+            //prevent race condition
             lock (_lock)
             {
                 return _requestTimestamps.Count;
@@ -35,6 +36,20 @@ internal class ClientRequestTracker
     }
 
 
+    public DateTime GetLastRequestTime()
+    {
+        lock (_lock)
+        {
+            if (_requestTimestamps.Count == 0)
+            {
+         
+                return DateTime.MinValue;
+            }
+
+   
+            return _requestTimestamps.Last();
+        }
+    }
     public bool TryRecordRequest(int maxRequests, TimeSpan windowSize)
     {
         lock (_lock)
@@ -42,7 +57,7 @@ internal class ClientRequestTracker
             var now = DateTime.UtcNow;
             var windowStart = now - windowSize;
 
-            // Remove expired timestamps
+            // Remove request that not relevant to the window if any
             while (_requestTimestamps.Count > 0 && _requestTimestamps.Peek() < windowStart)
             {
                 _requestTimestamps.Dequeue();
@@ -56,6 +71,7 @@ internal class ClientRequestTracker
 
             // Record the new request
             _requestTimestamps.Enqueue(now);
+
             return true;
         }
     }
@@ -86,6 +102,7 @@ public class RateLimitingMiddleware
     private readonly ConcurrentDictionary<string, ClientRequestTracker> _clientTrackers;
     private readonly Timer _cleanupTimer;
 
+    //will run each 5 minutes to delete from the _clientTrackers clients that doenst sent request in the last 2 mintues , to prevent memoery leak
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
     public RateLimitingMiddleware(
@@ -189,7 +206,10 @@ public class RateLimitingMiddleware
 
         foreach (var kvp in _clientTrackers)
         {
-            if (kvp.Value.RequestCount == 0)
+            var lastRequest = kvp.Value.GetLastRequestTime();
+
+            // If the last request was before the cutoff (now-2 minutes), OR the queue is empty (MinValue), remove it.
+            if (lastRequest < staleThreshold)
             {
                 _clientTrackers.TryRemove(kvp.Key, out _);
             }

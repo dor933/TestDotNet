@@ -134,6 +134,7 @@ class Program
                     var pingData = Encoding.UTF8.GetBytes("PING\n");
                     await stream.WriteAsync(pingData);
                     await stream.FlushAsync();
+                    PrintInfo("Ping Sent Successfully");
                 }
             }
             catch
@@ -270,9 +271,7 @@ class Program
     }
 }
 
-/// <summary>
-/// Notification message structure matching the server's format.
-/// </summary>
+
 public class NotificationMessage
 {
     public string Type { get; set; } = string.Empty;
@@ -281,9 +280,7 @@ public class NotificationMessage
     public object? Data { get; set; }
 }
 
-/// <summary>
-/// Stock update data structure.
-/// </summary>
+
 public class StockUpdateData
 {
     public int ProductId { get; set; }
