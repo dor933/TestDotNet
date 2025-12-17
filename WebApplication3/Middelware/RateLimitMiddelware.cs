@@ -136,6 +136,7 @@ public class RateLimitingMiddleware
             return;
         }
 
+        //creating the response to the client with information about the current state- what the limit, and how much he can send in exact period of time (the window size in seconds).
         context.Response.OnStarting(() =>
         {
             context.Response.Headers["X-RateLimit-Limit"] = _options.MaxRequests.ToString();
@@ -170,6 +171,7 @@ public class RateLimitingMiddleware
   
     private static string GetClientIdentifier(HttpContext context)
     {
+        // find the original IP address that send the request if proxy or LB sit between
         var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrEmpty(forwardedFor))
         {
@@ -195,14 +197,10 @@ public class RateLimitingMiddleware
     }
 }
 
-/// <summary>
-/// Extension methods for registering the rate limiting middleware.
-/// </summary>
+
 public static class RateLimitingMiddlewareExtensions
 {
-    /// <summary>
-    /// Adds rate limiting middleware to the request pipeline.
-    /// </summary>
+
     public static IApplicationBuilder UseRateLimiting(this IApplicationBuilder builder)
     {
         return builder.UseMiddleware<RateLimitingMiddleware>();
