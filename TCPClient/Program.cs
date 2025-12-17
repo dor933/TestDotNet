@@ -57,19 +57,16 @@ class Program
         Console.WriteLine("[INFO] Press Ctrl+C to disconnect.\n");
         Console.WriteLine(new string('─', 60));
 
-        // Get the network stream for reading data
         using var stream = client.GetStream();
         var buffer = new byte[4096];
         var messageBuilder = new StringBuilder();
 
-        // Keep-alive ping task
         var pingTask = SendPingAsync(stream);
 
         while (_isRunning && client.Connected)
         {
             try
             {
-                // Check if data is available
                 if (stream.DataAvailable)
                 {
                     var bytesRead = await stream.ReadAsync(buffer);
@@ -80,15 +77,12 @@ class Program
                         break;
                     }
 
-                    // Append received data to message builder
                     var receivedText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                     messageBuilder.Append(receivedText);
 
-                    // Process complete messages (separated by newlines)
                     var content = messageBuilder.ToString();
                     var messages = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-                    // Keep incomplete message in buffer
                     if (!content.EndsWith('\n') && messages.Length > 0)
                     {
                         messageBuilder.Clear();
@@ -100,7 +94,6 @@ class Program
                         messageBuilder.Clear();
                     }
 
-                    // Process each complete message
                     foreach (var message in messages)
                     {
                         ProcessMessage(message.Trim());
@@ -108,7 +101,6 @@ class Program
                 }
                 else
                 {
-                    // Small delay to prevent busy-waiting
                     await Task.Delay(100);
                 }
             }
@@ -139,7 +131,6 @@ class Program
             }
             catch
             {
-                // Ignore ping errors
                 break;
             }
         }
@@ -168,7 +159,7 @@ class Program
                     break;
 
                 case "Pong":
-                    // Keep-alive response, no need to display
+                    PrintInfo("Received Pong");
                     break;
 
                 default:
@@ -193,7 +184,6 @@ class Program
         Console.WriteLine($"  Time: {notification.Timestamp:yyyy-MM-dd HH:mm:ss UTC}");
         Console.WriteLine($"  {notification.Message}");
 
-        // Parse the Data object if available
         if (notification.Data != null)
         {
             try
@@ -233,7 +223,6 @@ class Program
             }
             catch
             {
-                // Ignore parsing errors for data
             }
         }
 
