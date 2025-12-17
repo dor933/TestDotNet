@@ -1,8 +1,17 @@
 ﻿using Microsoft.Data.SqlClient;
 using System.Text.RegularExpressions;
 
+/// <summary>
+/// Provides extension methods for database initialization and setup.
+/// </summary>
 public static class DatabaseExtensions
 {
+    /// <summary>
+    /// Ensures the database and required tables are created.
+    /// Creates the database if it doesn't exist and executes the schema script if tables are missing.
+    /// </summary>
+    /// <param name="app">The application builder instance.</param>
+    /// <param name="fileName">The name of the SQL schema file to execute.</param>
     public static void EnsureDatabaseCreated(this IApplicationBuilder app, string fileName)
     {
         using (var scope = app.ApplicationServices.CreateScope())
@@ -59,7 +68,7 @@ public static class DatabaseExtensions
 
     private static void RunScript(string connectionString, string fileName, ILogger logger)
     {
-        var filePath = Path.Combine(AppContext.BaseDirectory, $"../../../{fileName}");
+        var filePath = Path.Combine(AppContext.BaseDirectory, fileName);
         if (!File.Exists(filePath))
         {
             logger.LogError($"Script file not found: {filePath}");

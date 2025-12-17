@@ -3,18 +3,34 @@ using System.Net;
 
 namespace ProductInventoryApi.Middleware;
 
+/// <summary>
+/// Configuration options for the rate limiting middleware.
+/// </summary>
 public class RateLimitingOptions
 {
+    /// <summary>
+    /// The configuration section name for rate limiting options.
+    /// </summary>
     public const string SectionName = "RateLimiting";
 
-
+    /// <summary>
+    /// Gets or sets the maximum number of requests allowed within the time window. Default is 10.
+    /// </summary>
     public int MaxRequests { get; set; } = 10;
 
-
+    /// <summary>
+    /// Gets or sets the time window size in seconds for rate limiting. Default is 60 seconds.
+    /// </summary>
     public int WindowSizeInSeconds { get; set; } = 60;
 
+    /// <summary>
+    /// Gets or sets the HTTP methods that are subject to rate limiting.
+    /// </summary>
     public string[] LimitedMethods { get; set; } = { "POST", "PUT", "DELETE" };
 
+    /// <summary>
+    /// Gets or sets the URL paths that are subject to rate limiting.
+    /// </summary>
     public string[] LimitedPaths { get; set; } = { "/api/products" };
 }
 
@@ -93,7 +109,10 @@ internal class ClientRequestTracker
     }
 }
 
-
+/// <summary>
+/// Middleware that implements rate limiting based on client IP address.
+/// Limits the number of requests a client can make within a configurable time window.
+/// </summary>
 public class RateLimitingMiddleware
 {
     private readonly RequestDelegate _next;
@@ -105,6 +124,12 @@ public class RateLimitingMiddleware
     //will run each 5 minutes to delete from the _clientTrackers clients that doenst sent request in the last 2 mintues , to prevent memoery leak
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RateLimitingMiddleware"/> class.
+    /// </summary>
+    /// <param name="next">The next middleware in the pipeline.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="configuration">The application configuration to retrieve rate limiting settings.</param>
     public RateLimitingMiddleware(
         RequestDelegate next,
         ILogger<RateLimitingMiddleware> logger,
@@ -119,6 +144,11 @@ public class RateLimitingMiddleware
         _cleanupTimer = new Timer(CleanupStaleEntries, null, CleanupInterval, CleanupInterval);
     }
 
+    /// <summary>
+    /// Processes the HTTP request and enforces rate limiting rules.
+    /// </summary>
+    /// <param name="context">The HTTP context for the current request.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
         if (!ShouldRateLimit(context))
@@ -217,13 +247,18 @@ public class RateLimitingMiddleware
     }
 }
 
-
+/// <summary>
+/// Extension methods for adding rate limiting middleware to the application pipeline.
+/// </summary>
 public static class RateLimitingMiddlewareExtensions
 {
-
+    /// <summary>
+    /// Adds the rate limiting middleware to the application pipeline.
+    /// </summary>
+    /// <param name="builder">The application builder.</param>
+    /// <returns>The application builder for chaining.</returns>
     public static IApplicationBuilder UseRateLimiting(this IApplicationBuilder builder)
     {
         return builder.UseMiddleware<RateLimitingMiddleware>();
     }
 }
-

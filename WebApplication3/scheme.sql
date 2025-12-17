@@ -24,8 +24,8 @@ CREATE TABLE dbo.Products (
     CategoryId INT NOT NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1,
-    CONSTRAINT FK_Products_Categories 
-        FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(CategoryId)
+    CONSTRAINT FK_Products_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(CategoryId),
+    CONSTRAINT UQ_Products_Category_Name UNIQUE (CategoryId, Name)
 );
 GO
 

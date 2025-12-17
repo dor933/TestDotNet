@@ -4,22 +4,39 @@ using WebApplication3.Interfaces;
 
 namespace ProductInventoryApi.Controllers;
 
-
+/// <summary>
+/// Manages product inventory operations including creation, retrieval, updates, and deletion.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
 public class ProductsController : ControllerBase
 {
-    private readonly IProductsService _productRepository;
+    private readonly IProductsRepository _productRepository;
     private readonly ILogger<ProductsController> _logger;
 
-    public ProductsController(IProductsService productRepository, ILogger<ProductsController> logger)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProductsController"/> class.
+    /// </summary>
+    /// <param name="productRepository">The repository for product data operations.</param>
+    /// <param name="logger">The logger instance.</param>
+    public ProductsController(IProductsRepository productRepository, ILogger<ProductsController> logger)
     {
         _productRepository = productRepository;
         _logger = logger;
     }
 
-
+    /// <summary>
+    /// Retrieves a list of all active products.
+    /// </summary>
+    /// <remarks>
+    /// Use this endpoint to get all products that have not been soft-deleted. 
+    /// You can optionally filter by category ID.
+    /// </remarks>
+    /// <param name="categoryId">Optional. The ID of the category to filter products by.</param>
+    /// <returns>A list of active products.</returns>
+    /// <response code="200">Returns the list of products</response>
+    /// <response code="500">If there was an internal server error</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProductResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductResponse>>> GetAllProducts([FromQuery] int? categoryId = null)
@@ -41,10 +58,18 @@ public class ProductsController : ControllerBase
         }
     }
 
-  
+    /// <summary>
+    /// Retrieves details of a specific product by its unique ID.
+    /// </summary>
+    /// <param name="id">The unique identifier of the product.</param>
+    /// <returns>The product details if found.</returns>
+    /// <response code="200">Returns the requested product</response>
+    /// <response code="404">If the product does not exist</response>
+    /// <response code="500">If there was an internal server error</response>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+
     public async Task<ActionResult<ProductResponse>> GetProductById(int id)
     {
         try
@@ -69,7 +94,27 @@ public class ProductsController : ControllerBase
         }
     }
 
- 
+    /// <summary>
+    /// Adds a new product to the inventory.
+    /// </summary>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     POST /api/Products
+    ///     {
+    ///        "name": "Gaming Laptop X1",
+    ///        "sku": "GL-X1-2024",
+    ///        "price": 4500.00,
+    ///        "stockQuantity": 15,
+    ///        "categoryId": 1
+    ///     }
+    /// 
+    /// </remarks>
+    /// <param name="request">The product creation object containing name, SKU, price, etc.</param>
+    /// <returns>The newly created product.</returns>
+    /// <response code="201">Returns the newly created product</response>
+    /// <response code="400">If the input validation fails (e.g. negative price, missing SKU)</response>
+    /// <response code="500">If there was an internal server error</response>
     [HttpPost]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -118,7 +163,16 @@ public class ProductsController : ControllerBase
         }
     }
 
-
+    /// <summary>
+    /// Updates the stock quantity for an existing product.
+    /// </summary>
+    /// <param name="id">The unique identifier of the product to update.</param>
+    /// <param name="request">The object containing the new stock quantity.</param>
+    /// <returns>The updated product details.</returns>
+    /// <response code="200">Returns the updated product</response>
+    /// <response code="400">If validation fails (e.g. negative quantity)</response>
+    /// <response code="404">If the product does not exist</response>
+    /// <response code="500">If there was an internal server error</response>
     [HttpPut("{id:int}/stock")]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -164,7 +218,18 @@ public class ProductsController : ControllerBase
         }
     }
 
-
+    /// <summary>
+    /// Performs a Soft Delete on a product.
+    /// </summary>
+    /// <remarks>
+    /// The product is marked as inactive (IsActive = 0) and will no longer appear in the main list.
+    /// It is not physically removed from the database.
+    /// </remarks>
+    /// <param name="id">The unique identifier of the product to delete.</param>
+    /// <returns>No content.</returns>
+    /// <response code="204">If the product was successfully deleted</response>
+    /// <response code="404">If the product does not exist</response>
+    /// <response code="500">If there was an internal server error</response>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]

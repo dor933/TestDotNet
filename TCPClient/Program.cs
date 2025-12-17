@@ -160,7 +160,6 @@ class Program
                     break;
 
                 case "Pong":
-                    PrintInfo("Received Pong");
                     break;
 
                 default:

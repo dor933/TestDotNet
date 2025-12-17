@@ -1,36 +1,63 @@
-swagger UI address: http://localhost:5272/swagger/index.html
-swagger JSON address: http://localhost:5272/swagger/v1/swagger.json
-
 Project Setup & Installation
-
 This guide outlines the steps required to configure and run the solution locally using Visual Studio.
 
-Prerequisites
+Swagger Endpoints
+Swagger UI Address: https://localhost:7274/swagger/index.html / http://localhost:5272/swagger/index.html
 
-*Port Availability*: Ensure that **port 5272** is free and available on your local machine/server.
+Swagger JSON Address: https://localhost:7274/swagger/v1/swagger.json / http://localhost:5272/swagger/v1/swagger.json
+
+Note: These addresses can be edited in Properties/launchSettings.json. When using Browser, You must use HTTPS due to CORS requirements.
+
+Prerequisites
+Port Availability: Ensure that ports 5272 and 7274 are free and available on your local machine.
 
 Configuration
+1. Package Setup
+Restore the necessary dependencies before building:
 
-Database Setup
+Right-click the Solution in the Solution Explorer.
+
+Select Restore NuGet Packages.
+
+2. Database Setup
 Before starting the project, you must configure the database connection string:
 
-1. Open the `appsettings.json` file.
-2. Locate the database connection string settings.
-3. Update the server address to match your local environment.
-*Note:* If you are using **SQL Express**, ensure the address is set to `localhost\SQLEXPRESS`.
+Open the appsettings.json file.
+
+Locate the database connection string settings.
+
+Update the server address to match your environment (local or remote; the default is usually localhost or .).
+
+Note: If you are using SQL Express, ensure the address is set to .\SQLEXPRESS or <YourMachineName>\SQLEXPRESS.
+
+3. Documentation File Setup
+To ensure the project generates and reads the XML documentation file correctly (preventing "File Not Found" errors), follow these steps:
+
+Right-click your Project and select Properties.
+
+Navigate to Build > Output (or search for "Documentation file" in the search bar).
+
+Verify that the checkbox labeled "Generate a file containing API documentation" is checked.
 
 How to Run (Visual Studio)
+To run the system successfully, the startup order is critical. The server side must be running before the client attempts to connect.
 
-To run the system successfully, the startup order of the projects is critical. The server side must be up and running before the client attempts to connect.
+Configure Startup Projects
+Right-click on the Solution file in the Solution Explorer.
 
-### Configure Startup Projects
-1. Right-click on the Solution file in the Solution Explorer.
-2. Select Properties.
-3. Go to Common Properties > Startup Project.
-4. Select Multiple startup projects.
-5. Set the start order as follows:
-    1. Web Application 3 (Action: `Start`)
-    2. TCP Client (Action: `Start`)
-6. Click Apply and OK.
+Select Properties.
 
-Important: The `Web Application 3` acts as the server. It must finish initializing before the `TCP Client` runs to establish a successful connection.
+Go to Common Properties > Startup Project.
+
+Select Multiple startup projects.
+
+Set the start order as follows:
+
+Web Application 3 (Action: Start)
+
+TCP Client (Action: Start)
+
+Click Apply and OK.
+
+Start the Solution
+Press F5 or click the Start button in the top toolbar to launch the solution.

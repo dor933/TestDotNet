@@ -7,15 +7,25 @@ using WebApplication3.Interfaces;
 
 namespace ProductInventoryApi.Repositories;
 
-public class ProductsService : IProductsService
+/// <summary>
+/// Repository for managing product data operations using Dapper and SQL Server.
+/// </summary>
+public class ProductsRepository : IProductsRepository
 {
     private readonly string _connectionString;
-    private readonly ILogger<ProductsService> _logger;
+    private readonly ILogger<ProductsRepository> _logger;
     private readonly StockNotificationServer? _notificationServer;
 
-    public ProductsService(
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProductsRepository"/> class.
+    /// </summary>
+    /// <param name="configuration">The application configuration to retrieve connection strings.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="notificationServer">Optional reference to the stock notification server for broadcasting updates.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the 'DefaultConnection' string is missing.</exception>
+    public ProductsRepository(
         IConfiguration configuration,
-        ILogger<ProductsService> logger,
+        ILogger<ProductsRepository> logger,
         StockNotificationServer? notificationServer = null)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
@@ -26,6 +36,11 @@ public class ProductsService : IProductsService
 
     private SqlConnection CreateConnection() => new SqlConnection(_connectionString);
 
+    /// <summary>
+    /// Retrieves all active products, optionally filtered by category.
+    /// </summary>
+    /// <param name="categoryId">Optional category identifier to filter products.</param>
+    /// <returns>A collection of active products.</returns>
     public async Task<IEnumerable<Product>> GetAllActiveProductsAsync(int? categoryId = null)
     {
         try
@@ -51,6 +66,11 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Retrieves a product by its unique identifier.
+    /// </summary>
+    /// <param name="productId">The unique identifier of the product.</param>
+    /// <returns>The product if found; otherwise, <c>null</c>.</returns>
     public async Task<Product?> GetProductByIdAsync(int productId)
     {
         try
@@ -87,6 +107,11 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Increments the stock quantity for all products by two units.
+    /// Broadcasts a maintenance stock update notification if the notification server is available.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task IncrementProducts()
     {
         try
@@ -97,6 +122,11 @@ public class ProductsService : IProductsService
                 "sp_IncreaseAllStockByTwo",
                 commandType: CommandType.StoredProcedure
                 );
+
+            if(_notificationServer != null)
+            {
+               await _notificationServer.BroadcastMaintananceStockUpdate();
+            }
         }
         catch(Exception ex) 
         {
@@ -106,6 +136,15 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Creates a new product with the specified details.
+    /// </summary>
+    /// <param name="name">The name of the product.</param>
+    /// <param name="sku">The Stock Keeping Unit (SKU) code of the product.</param>
+    /// <param name="price">The price of the product.</param>
+    /// <param name="stockQuantity">The initial stock quantity.</param>
+    /// <param name="categoryId">The category identifier for the product.</param>
+    /// <returns>A tuple containing the created product (if successful) and an error message (if failed).</returns>
     public async Task<(Product? Product, string? ErrorMessage)> CreateProductAsync(
         string name, string sku, decimal price, int stockQuantity, int categoryId)
     {
@@ -146,6 +185,13 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Updates the stock quantity for a specific product.
+    /// Broadcasts a stock update notification if the notification server is available.
+    /// </summary>
+    /// <param name="productId">The unique identifier of the product.</param>
+    /// <param name="newQuantity">The new stock quantity to set.</param>
+    /// <returns>The updated product if found; otherwise, <c>null</c>.</returns>
     public async Task<Product?> UpdateStockAsync(int productId, int newQuantity)
     {
         try
@@ -184,6 +230,11 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Performs a soft delete on a product by marking it as inactive.
+    /// </summary>
+    /// <param name="productId">The unique identifier of the product to delete.</param>
+    /// <returns><c>true</c> if the product was successfully deleted; otherwise, <c>false</c>.</returns>
     public async Task<bool> SoftDeleteAsync(int productId)
     {
         try
@@ -206,6 +257,11 @@ public class ProductsService : IProductsService
         }
     }
 
+    /// <summary>
+    /// Checks whether a product with the specified SKU already exists.
+    /// </summary>
+    /// <param name="sku">The Stock Keeping Unit (SKU) code to check.</param>
+    /// <returns><c>true</c> if a product with the SKU exists; otherwise, <c>false</c>.</returns>
     public async Task<bool> SkuExistsAsync(string sku)
     {
         try

@@ -2,25 +2,23 @@ using Microsoft.OpenApi.Models;
 using ProductInventoryApi.Middleware;
 using ProductInventoryApi.Repositories;
 using ProductInventoryApi.Services;
+using System.Reflection;
 using WebApplication3.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 
 builder.Services.AddSingleton<StockNotificationServer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StockNotificationServer>());
-builder.Services.AddHostedService<DailyCleanUpService>();
+builder.Services.AddHostedService<DailyService>();
 
-builder.Services.AddScoped<IProductsService>(sp =>
+builder.Services.AddScoped<IProductsRepository>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-    var logger = sp.GetRequiredService<ILogger<ProductsService>>();
+    var logger = sp.GetRequiredService<ILogger<ProductsRepository>>();
     var notificationServer = sp.GetRequiredService<StockNotificationServer>();
-    return new ProductsService(config, logger, notificationServer);
+    return new ProductsRepository(config, logger, notificationServer);
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -72,6 +70,12 @@ Description: Performs a Soft Delete. The product is marked as inactive and will 
             Email = "doratzabi1@gmail.com"
         }
     });
+
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    // 2. Combine with the base path where the app runs
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    // 3. Tell Swagger to use it
+    options.IncludeXmlComments(xmlPath);
 
 });
 

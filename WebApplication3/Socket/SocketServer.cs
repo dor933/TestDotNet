@@ -6,6 +6,10 @@ using System.Text.Json;
 
 namespace ProductInventoryApi.Services;
 
+/// <summary>
+/// A TCP-based server that broadcasts real-time stock notifications to connected clients.
+/// Implements <see cref="IHostedService"/> for ASP.NET Core background service integration.
+/// </summary>
 public class StockNotificationServer : IHostedService, IDisposable
 {
     private readonly ILogger<StockNotificationServer> _logger;
@@ -17,12 +21,22 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private readonly ConcurrentDictionary<string, ClientConnection> _connectedClients = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StockNotificationServer"/> class.
+    /// </summary>
+    /// <param name="logger">The logger instance for logging server events.</param>
+    /// <param name="configuration">The application configuration to retrieve server settings.</param>
     public StockNotificationServer(ILogger<StockNotificationServer> logger, IConfiguration configuration)
     {
         _logger = logger;
         _port = configuration.GetValue("SocketServer:Port", 5050);
     }
 
+    /// <summary>
+    /// Starts the TCP listener and begins accepting client connections.
+    /// </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -44,6 +58,11 @@ public class StockNotificationServer : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Stops the TCP listener and disconnects all connected clients.
+    /// </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Stopping stock notification server...");
@@ -163,6 +182,7 @@ public class StockNotificationServer : IHostedService, IDisposable
         }
         catch (OperationCanceledException)
         {
+
         }
         catch (Exception ex)
         {
@@ -174,6 +194,14 @@ public class StockNotificationServer : IHostedService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Broadcasts a stock update notification to all connected clients.
+    /// </summary>
+    /// <param name="productId">The unique identifier of the product.</param>
+    /// <param name="productName">The name of the product.</param>
+    /// <param name="oldQuantity">The previous stock quantity.</param>
+    /// <param name="newQuantity">The new stock quantity.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task BroadcastStockUpdateAsync(int productId, string productName, int oldQuantity, int newQuantity)
     {
         var notification = new NotificationMessage
@@ -194,10 +222,14 @@ public class StockNotificationServer : IHostedService, IDisposable
         await BroadcastAsync(notification);
     }
 
+    /// <summary>
+    /// Broadcasts a maintenance stock update notification to all connected clients,
+    /// indicating that all products have had their quantities increased by two.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task BroadcastMaintananceStockUpdate()
     {
-        // prevent multiple maintenance broadcasts overlapping 
-        await _broadcastSemaphore.WaitAsync();
+      
 
         try
         {
@@ -210,15 +242,20 @@ public class StockNotificationServer : IHostedService, IDisposable
 
             await BroadcastAsync(notification);
         }
-        finally
+        catch(Exception ex)
         {
-            _broadcastSemaphore.Release();
+            _logger.LogError(ex, "Error Broadcasting Maintanance Stock Upadte");
+            
+
         }
+      
+   
     }
 
     private async Task BroadcastAsync(NotificationMessage notification)
     {
-        // This lock ensures we don't have two massive loops running at once
+        // This lock ensures we don't have two massive loops running at once (only one broadcast job can run in a time, for example BroadcastMaintananceStockUpdate will have to wait until BroadcastStockUpdateAsync finish if 
+        // its running.
         await _broadcastSemaphore.WaitAsync();
         try
         {
@@ -253,14 +290,13 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private async Task<bool> SendToClientAsync(ClientConnection connection, NotificationMessage notification)
     {
-        _logger.LogInformation("number of available threads for" + connection.Client.ToString() + "Is "+ connection.SendLock.CurrentCount);
-        if(connection.SendLock.CurrentCount == 0)
-        {
-            _logger.LogWarning("Send lock is already held for client" + connection.Client.ToString() +" Skipping send to" + connection.Client.Client.RemoteEndPoint?.ToString());
-        }
+        // Ensures that two threads cannot write to the stream simultaneously (locking is scoped per-client).
+        // For example: If a Broadcast attempts to write to this client at the exact same moment the client sends a Ping, 
+        // this lock forces one operation to wait until the other completes.
         await connection.SendLock.WaitAsync();
         try
         {
+
             if (connection.Client.Connected)
             {
                 var json = JsonSerializer.Serialize(notification) + "\n";
@@ -323,8 +359,14 @@ public class StockNotificationServer : IHostedService, IDisposable
         return $"{endpoint?.Address}:{endpoint?.Port}-{Guid.NewGuid():N}";
     }
 
+    /// <summary>
+    /// Gets the number of currently connected clients.
+    /// </summary>
     public int ConnectedClientCount => _connectedClients.Count;
 
+    /// <summary>
+    /// Releases all resources used by the <see cref="StockNotificationServer"/>.
+    /// </summary>
     public void Dispose()
     {
         _cancellationTokenSource?.Cancel();
@@ -339,6 +381,8 @@ public class StockNotificationServer : IHostedService, IDisposable
 internal class ClientConnection : IDisposable
 {
     public TcpClient Client { get; }
+
+    //to prevent using the global SemaphoreSlim of brodcasts in all streams (for example we dont want to block clients 5 and 6 just beacuse we are broadcasting) we implemented personal SemaphoreSlim to handle blocks in *client* level
     public SemaphoreSlim SendLock { get; } = new SemaphoreSlim(1, 1);
 
     public ClientConnection(TcpClient client)
@@ -353,10 +397,28 @@ internal class ClientConnection : IDisposable
     }
 }
 
+/// <summary>
+/// Represents a notification message sent to connected clients.
+/// </summary>
 public class NotificationMessage
 {
+    /// <summary>
+    /// Gets or sets the type of notification (e.g., "StockUpdate", "Connected", "Pong").
+    /// </summary>
     public string Type { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the human-readable message content.
+    /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the UTC timestamp when the notification was created.
+    /// </summary>
     public DateTime Timestamp { get; set; }
+
+    /// <summary>
+    /// Gets or sets additional data associated with the notification.
+    /// </summary>
     public object? Data { get; set; }
 }
