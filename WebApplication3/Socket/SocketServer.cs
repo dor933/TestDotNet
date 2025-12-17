@@ -253,6 +253,11 @@ public class StockNotificationServer : IHostedService, IDisposable
 
     private async Task<bool> SendToClientAsync(ClientConnection connection, NotificationMessage notification)
     {
+        _logger.LogInformation("number of available threads for" + connection.Client.ToString() + "Is "+ connection.SendLock.CurrentCount);
+        if(connection.SendLock.CurrentCount == 0)
+        {
+            _logger.LogWarning("Send lock is already held for client" + connection.Client.ToString() +" Skipping send to" + connection.Client.Client.RemoteEndPoint?.ToString());
+        }
         await connection.SendLock.WaitAsync();
         try
         {

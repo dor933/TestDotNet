@@ -24,7 +24,7 @@ app.Run();
         Write-Host "   BLOCKED! Retry After: $($response.Headers["Retry-After"]) seconds"
     }
 }
-Option B: Using cURL or PostmanMake a POST request to http://localhost:your-port/api/products.Requests 1 through 10:Inspect the Response Headers.Look for X-RateLimit-Remaining. It will decrease with every click ($9, 8, 7...$).Request 11:Status Code: 429 Too Many Requests.Response Body:JSON{
+Option B: Using cURL or Postman  -  Make a POST request to http://localhost:your-port/api/products.Requests 1 through 10:Inspect the Response Headers.Look for X-RateLimit-Remaining. It will decrease with every click ($9, 8, 7...$).Request 11:Status Code: 429 Too Many Requests.Response Body:JSON{
     "message": "Rate limit exceeded. Too many requests.",
     "retryAfterSeconds": 60
 }

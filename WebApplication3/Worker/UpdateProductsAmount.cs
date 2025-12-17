@@ -31,7 +31,8 @@ public class DailyCleanUpService : BackgroundService
             return; 
         }
 
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
+        //debug
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
 
         try
         {
