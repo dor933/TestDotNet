@@ -6,7 +6,7 @@ Swagger UI Address: https://localhost:7274/swagger/index.html / http://localhost
 
 Swagger JSON Address: https://localhost:7274/swagger/v1/swagger.json / http://localhost:5272/swagger/v1/swagger.json
 
-Note: These addresses can be edited in Properties/launchSettings.json. When using Browser, You must use HTTPS due to CORS requirements.
+Note: These addresses can be edited in Properties/launchSettings.json.
 
 Prerequisites
 Port Availability: Ensure that ports 5272 and 7274 are free and available on your local machine.
